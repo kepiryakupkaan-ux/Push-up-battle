@@ -114,7 +114,8 @@ class WebRtcClient(
     fun createOffer(onSuccess: (SessionDescription) -> Unit) {
         val constraints = MediaConstraints()
         peerConnection?.createOffer(object : SdpObserverAdapter() {
-            override fun onCreateSuccess(sdp: SessionDescription) {
+            override fun onCreateSuccess(sdp: SessionDescription?) {
+                if (sdp == null) return
                 peerConnection?.setLocalDescription(SdpObserverAdapter(), sdp)
                 onSuccess(sdp)
             }
@@ -124,7 +125,8 @@ class WebRtcClient(
     fun createAnswer(onSuccess: (SessionDescription) -> Unit) {
         val constraints = MediaConstraints()
         peerConnection?.createAnswer(object : SdpObserverAdapter() {
-            override fun onCreateSuccess(sdp: SessionDescription) {
+            override fun onCreateSuccess(sdp: SessionDescription?) {
+                if (sdp == null) return
                 peerConnection?.setLocalDescription(SdpObserverAdapter(), sdp)
                 onSuccess(sdp)
             }
