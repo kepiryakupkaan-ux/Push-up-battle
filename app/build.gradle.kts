@@ -52,8 +52,10 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
 
-    // WebRTC - Google's official prebuilt library
-    implementation("org.webrtc:google-webrtc:1.0.32006")
+    // WebRTC - community-maintained prebuilt (org.webrtc:google-webrtc was removed
+    // from Maven when jcenter shut down; this is the standard modern replacement,
+    // published on Maven Central, and it still exposes the same org.webrtc.* API).
+    implementation("io.github.webrtc-sdk:android:125.6422.07")
 
     // CameraX (used later for pose/rep detection, kept here for step 3)
     implementation("androidx.camera:camera-core:1.3.4")
