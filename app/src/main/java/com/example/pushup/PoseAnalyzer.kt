@@ -118,8 +118,8 @@ class PoseAnalyzer(
         val overlay = HashMap<Int, OverlayPoint>()
         for (type in trackedLandmarks) {
             val lm = pose.getPoseLandmark(type) ?: continue
-            val (nx, ny) = rotatedMirroredNormalized(lm.position.x, lm.position.y, imgW, imgH, rotation)
-            val smoothedPoint = smooth(type, nx, ny)
+            val normalized = rotatedMirroredNormalized(lm.position.x, lm.position.y, imgW, imgH, rotation)
+            val smoothedPoint = smooth(type, normalized.x, normalized.y)
             overlay[type] = OverlayPoint(smoothedPoint.x, smoothedPoint.y, lm.inFrameLikelihood > 0.4f)
         }
         if (overlay.isNotEmpty()) onLandmarks(overlay, postureOk)
