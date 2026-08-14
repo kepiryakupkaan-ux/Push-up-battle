@@ -21,6 +21,14 @@ jobs:
           gradle-version: '8.7'
           cache-disabled: true
 
+      - name: Diagnose compose-ui dependency resolution
+        run: |
+          gradle :app:dependencies --configuration debugCompileClasspath > deps.txt || true
+          echo "----- compose.ui:ui matches -----"
+          grep -n "compose.ui:ui" deps.txt || true
+          echo "----- dependencyInsight for androidx.compose.ui:ui -----"
+          gradle :app:dependencyInsight --dependency androidx.compose.ui:ui --configuration debugCompileClasspath || true
+
       - name: Build debug APK
         run: gradle assembleDebug
       - name: Upload APK
