@@ -1520,14 +1520,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun defaultIceServers(): List<PeerConnection.IceServer> = listOf(
-        PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-        PeerConnection.IceServer.builder("turn:relay1.expressturn.com:3478")
-            .setUsername("EXPRESSTURN_USERNAME_BURAYA")
-            .setPassword("EXPRESSTURN_PASSWORD_BURAYA")
-            .createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
-            .createIceServer()
-    )
+    PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
+    PeerConnection.IceServer.builder("turn:free.expressturn.com:3478")
+        .setUsername("000000002102104065")
+        .setPassword("Bojx1Nf2qqS7ARqhsjbNPtIfHZo=")
+        .createIceServer(),
+    PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
+        .setUsername("openrelayproject")
+        .setPassword("openrelayproject")
+        .createIceServer()
+)
 }
