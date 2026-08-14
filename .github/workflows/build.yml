@@ -31,6 +31,27 @@ jobs:
 
       - name: Build debug APK
         run: gradle assembleDebug
+
+      - name: Inspect ui-android AAR contents
+        if: always()
+        run: |
+          set -x
+          AAR=$(find "$HOME/.gradle/caches" -path "*compose.ui/ui-android/1.6.8*" -name "*.aar" | head -1)
+          echo "Found AAR: $AAR"
+          if [ -z "$AAR" ]; then
+            echo "No ui-android AAR found in cache!"
+            find "$HOME/.gradle/caches" -path "*compose.ui*ui-android*" 2>/dev/null
+            exit 0
+          fi
+          ls -la "$AAR"
+          mkdir -p /tmp/aarcheck && cd /tmp/aarcheck
+          unzip -o "$AAR" classes.jar
+          echo "----- classes.jar size -----"
+          ls -la classes.jar
+          echo "----- searching for graphicsLayer-related classes -----"
+          unzip -l classes.jar | grep -i graphicslayer || echo "NONE FOUND"
+          echo "----- listing androidx/compose/ui/draw/ contents -----"
+          unzip -l classes.jar | grep "androidx/compose/ui/draw/" || echo "NONE FOUND"
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
