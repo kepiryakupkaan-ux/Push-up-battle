@@ -1519,13 +1519,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * v3: TURN sunucusu ExpressTURN'e taşındı (ücretsiz plan, ayda 1000 GB - şu ana kadar
-     * kullanılan paylaşımlı openrelay.metered.ca'dan çok daha geniş bir kota).
-     * TODO: expressturn.com'a ücretsiz kayıt olup kendi kullanıcı adı/şifreni buraya yaz -
-     * aşağıdaki değerler yer tutucu, değiştirilmeden gerçek trafik taşımaz.
-     * openrelay satırı, ExpressTURN'e ulaşılamazsa diye yedek olarak bırakıldı.
-     */
     private fun defaultIceServers(): List<PeerConnection.IceServer> = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("turn:relay1.expressturn.com:3478")
