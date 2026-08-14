@@ -181,7 +181,7 @@ class PoseAnalyzer(
      * ters gelmiştir - o durumda hangi case'in tetiklendiğini (frame.rotation değerini
      * loglayarak) görüp ilgili satırı değiştirmek yeterli olur.
      */
-    private fun rotatedMirroredNormalized(x: Float, y: Float, imgW: Int, imgH: Int, rotationDeg: Int): PointF {
+    private fun rotatedMirroredNormalized(x: Float, y: Float, imgW: Int, imgH: Int, rotationDeg: Int): Pair<Float, Float> {
         val nx: Float
         val ny: Float
         when (rotationDeg) {
@@ -192,7 +192,7 @@ class PoseAnalyzer(
         }
         // Ön kamera önizlemesi selfie görünümü için yatayda aynalanıyor (bkz. setMirror(true)
         // in WebRtcClient), overlay'in de aynı şekilde aynalanması gerekiyor.
-        return PointF(1f - nx, ny)
+        return (1f - nx) to ny
     }
 
     private fun i420ToNv21(buffer: VideoFrame.I420Buffer): ByteArray {
