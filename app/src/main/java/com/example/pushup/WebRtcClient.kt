@@ -44,6 +44,10 @@ class WebRtcClient(
     private var remoteDescriptionSet = false
     private var closed = false
     private val pendingRemoteCandidates = mutableListOf<IceCandidate>()
+    // Bir SurfaceViewRenderer'ı ikinci kez init() etmeye çalışmak çöküyor ("Already
+    // initialized"). Bu bayrak, attachRemoteVideoTrack yanlışlıkla iki kez çağrılsa bile
+    // (örn. revanş/yeniden bağlanma akışlarında) ikinci init() çağrısını engelliyor.
+    private var remoteRendererInitialized = false
 
     val localVideoSource: VideoSource
     val localAudioSource: AudioSource
@@ -159,9 +163,17 @@ class WebRtcClient(
                     }
                 }
 
+                // DÜZELTME (ÇÖKME): onAddTrack yukarıda zaten her uzak video/ses track'i için
+                // tetikleniyor (Unified Plan - modern WebRTC standardı). onAddStream ise eski
+                // (Plan B) API'den kalma ve BAZI cihaz/sürümlerde onAddTrack ile birlikte
+                // İKİSİ BİRDEN tetikleniyor - bu da aynı VideoTrack için
+                // listener.onRemoteVideoTrack() iki kez çağrılmasına, oradan da
+                // WebRtcClient.attachRemoteVideoTrack() içinde aynı SurfaceViewRenderer'ın iki
+                // kez init() edilmesine yol açıyordu: "IllegalStateException: Already
+                // initialized" - maç eşleşir eşleşmez uygulamanın anında çökmesinin
+                // sebebi tam olarak buydu. Artık burada hiçbir şey yapılmıyor.
                 override fun onAddStream(stream: MediaStream) {
-                    stream.videoTracks.firstOrNull()?.let { listener.onRemoteVideoTrack(it) }
-                    stream.audioTracks.firstOrNull()?.let { listener.onRemoteAudioTrack(it) }
+                    // Bilerek boş bırakıldı - bkz. yukarıdaki yorum.
                 }
 
                 override fun onDataChannel(channel: DataChannel?) {
@@ -335,8 +347,11 @@ class WebRtcClient(
     }
 
     fun attachRemoteVideoTrack(track: VideoTrack, remoteRenderer: SurfaceViewRenderer) {
-        remoteRenderer.init(eglBase.eglBaseContext, null)
-        remoteRenderer.setMirror(false)
+        if (!remoteRendererInitialized) {
+            remoteRenderer.init(eglBase.eglBaseContext, null)
+            remoteRenderer.setMirror(false)
+            remoteRendererInitialized = true
+        }
         track.addSink(remoteRenderer)
     }
 
