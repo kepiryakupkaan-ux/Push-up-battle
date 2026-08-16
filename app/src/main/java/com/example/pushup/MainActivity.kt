@@ -1171,10 +1171,11 @@ class MainActivity : ComponentActivity() {
                     leaderboardClient.recordMatchResult(session.username, session.displayName, myReps, won, draw, session.photoBase64) { outcome ->
                         runOnUiThread { onMatchOutcome(outcome) }
                     }
-                    if (isCaller && opponentUsername != null) {
+                    val finalOpponentUsername = opponentUsername
+                    if (isCaller && finalOpponentUsername != null) {
                         matchHistoryClient.recordMatch(
                             session.username, session.displayName,
-                            opponentUsername, opponentDisplayName ?: "Rakip",
+                            finalOpponentUsername, opponentDisplayName ?: "Rakip",
                             myReps, opponentReps
                         )
                     }
