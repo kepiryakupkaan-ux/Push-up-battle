@@ -1197,9 +1197,10 @@ class MainActivity : ComponentActivity() {
                         runOnUiThread { onMatchOutcome(outcome) }
                     }
                     if (isCaller && opponentUsername != null) {
+                        val oppUsername = opponentUsername!!
                         matchHistoryClient.recordMatch(
                             session.username, session.displayName,
-                            opponentUsername, opponentDisplayName ?: "Rakip",
+                            oppUsername, opponentDisplayName ?: "Rakip",
                             myReps, opponentReps
                         )
                     }
