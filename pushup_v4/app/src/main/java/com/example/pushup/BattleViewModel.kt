@@ -40,7 +40,7 @@ class BattleViewModel : ViewModel() {
     fun setRepFeedback(feedback: RepFeedback?) = update { copy(repFeedback = feedback) }
     fun setEvent(event: BattleEvent?) = update { copy(event = event) }
 
-    private inline fun update(transform: (BattleUiState) -> BattleUiState) {
-        _state.value = transform(_state.value)
+    private inline fun update(transform: BattleUiState.() -> BattleUiState) {
+        _state.value = _state.value.transform()
     }
 }
