@@ -5,7 +5,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseDetection
 import com.google.mlkit.vision.pose.PoseLandmark
-import com.google.mlkit.vision.pose.accurate.AccuratePoseDetectorOptions
+import com.google.mlkit.vision.pose.PoseDetectorOptions
 import org.webrtc.VideoFrame
 import org.webrtc.VideoSink
 
@@ -34,19 +34,19 @@ class PoseAnalyzer(
     private val mirrored: Boolean = true
 
     private val detector = PoseDetection.getClient(
-        AccuratePoseDetectorOptions.Builder()
-            .setDetectorMode(AccuratePoseDetectorOptions.STREAM_MODE)
+        PoseDetectorOptions.Builder()
+            .setDetectorMode(PoseDetectorOptions.STREAM_MODE)
             .build()
     )
 
     private val repCounter = RepCounter()
     private var busy = false
     private var lastAnalysisMs = 0L
-    private val minIntervalMs = 90L // ~11 analiz/sn tavanı
+    private val minIntervalMs = 55L // ~18 analiz/sn tavanı (hızlı modelle artık rahat kaldırıyor)
 
     // Noktaların titremesini azaltmak için basit üstel yumuşatma (EMA).
     private val smoothed = HashMap<Int, PointF>()
-    private val smoothingFactor = 0.45f // 0 = hep eski değer (donuk), 1 = hep yeni değer (titrek)
+    private val smoothingFactor = 0.6f // 0 = hep eski değer (donuk), 1 = hep yeni değer (titrek)
 
     private val trackedLandmarks = intArrayOf(
         PoseLandmark.NOSE,
@@ -126,25 +126,38 @@ class PoseAnalyzer(
         val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
         val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
         val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
+        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
 
-        // Gövde eğimi: omuz-kalça hattının yataydan sapması (plank kontrolü).
-        // DÜZELTME (asıl "push-up tam algılanmıyor" sebebi): bu hesap eskiden HAM kamera
-        // buffer koordinatlarını (position.x/y) kullanıyordu. Telefon dikey (portre) tutulup
-        // sensör yatay olduğunda, ekranda YATAY duran bir plank pozisyonu ham buffer'da
-        // DİKEY görünür - yani "yataydan sapma" açısı hep ~90° çıkıyor ve gerçek, doğru
-        // yapılan bir şınav bile "plank değilsin" diye reddediliyordu. Artık aynı döndürme +
-        // aynalama dönüşümü (rotatedMirroredNormalized) burada da uygulanıyor, yani tilt
-        // ekranda GERÇEKTEN göründüğü şekliyle hesaplanıyor.
-        val shoulderForTilt = if (ok(leftShoulder)) leftShoulder else rightShoulder
-        val hipForTilt = if (ok(leftHip)) leftHip else rightHip
-        val torsoTilt = if (shoulderForTilt != null && hipForTilt != null && ok(shoulderForTilt) && ok(hipForTilt)) {
-            val sp = rawTransform(shoulderForTilt.position.x, shoulderForTilt.position.y, imgW, imgH, effRotation, effMirror)
-            val hp = rawTransform(hipForTilt.position.x, hipForTilt.position.y, imgW, imgH, effRotation, effMirror)
-            RepCounter.tiltFromHorizontalDegrees(sp.x, sp.y, hp.x, hp.y)
-        } else null
-        val postureOk = torsoTilt == null || torsoTilt <= 55.0
-
-        // Overlay için tüm noktaları normalize edip yumuşatarak yayınla.
+        // Form kontrolü: kalça VE omuz EKLEMLERİNDEKİ açılar - "gövdenin ekrana göre yatay
+        // olması" (tiltFromHorizontal) DEĞİL. Yaygın açık kaynak MediaPipe şınav sayıcılarının
+        // kullandığı yöntemle birebir aynı: "elbow>160 UP, elbow<90 DOWN, hip>160, shoulder>40".
+        // DÜZELTME (asıl "push-up algılanmıyor" sebebi): eski yöntem kameranın kullanıcıyı
+        // YANDAN çektiği klasik plank videoları için doğruydu. Bizim kamera kullanıcıyı ÖNDEN
+        // görüyor - bu açıda vücut ekranda hiçbir zaman gerçekten "yatay" durmuyor, bu yüzden
+        // doğru yapılan şınavlar bile reddediliyordu. Kalça/omuz eklem açıları ise elbow açısı
+        // gibi RİJİT açılar (3 nokta arası) - kameranın nereden baktığından etkilenmez, ham
+        // (döndürülmemiş) koordinatlarla hesaplanması yeterli.
+        val hipForAngle = if (ok(leftHip)) leftHip else if (ok(rightHip)) rightHip else null
+        val shoulderForHipAngle = if (ok(leftShoulder)) leftShoulder else if (ok(rightShoulder)) rightShoulder else null
+        val elbowForShoulderAngle = if (ok(leftElbow)) leftElbow else if (ok(rightElbow)) rightElbow else null
+        val kneeForHipAngle = if (ok(leftKnee)) leftKnee else if (ok(rightKnee)) rightKnee else null
+        val hipAngle = if (shoulderForHipAngle != null && hipForAngle != null && kneeForHipAngle != null) {
+            RepCounter.angleDegrees(
+                shoulderForHipAngle.position.x, shoulderForHipAngle.position.y,
+                hipForAngle.position.x, hipForAngle.position.y,
+                kneeForHipAngle.position.x, kneeForHipAngle.position.y
+            )
+        } else 180.0 // Diz görünmüyorsa (ör. kadraj dışı), form kontrolünü engelleme.
+        // Omuz eklem açısı: dirsek-omuz-kalça arası (referans koddaki "shoulder" açısı).
+        val shoulderAngle = if (elbowForShoulderAngle != null && shoulderForHipAngle != null && hipForAngle != null) {
+            RepCounter.angleDegrees(
+                elbowForShoulderAngle.position.x, elbowForShoulderAngle.position.y,
+                shoulderForHipAngle.position.x, shoulderForHipAngle.position.y,
+                hipForAngle.position.x, hipForAngle.position.y
+            )
+        } else 180.0
+        val postureOk = hipAngle >= 160.0 && shoulderAngle >= 40.0
         val overlay = HashMap<Int, OverlayPoint>()
         for (type in trackedLandmarks) {
             val lm = pose.getPoseLandmark(type) ?: continue
@@ -193,7 +206,7 @@ class PoseAnalyzer(
         )
         val poseConfidence = if (confidenceSamples.isEmpty()) 0f else confidenceSamples.average().toFloat()
         val repJustCompleted = repCounter.onReading(
-            elbowAngle, shoulderY, torsoTilt ?: 0.0, poseConfidence
+            elbowAngle, shoulderY, hipAngle, shoulderAngle, poseConfidence
         )
         if (repJustCompleted) {
             onRepCounterCompleted(repCounter.reps)
