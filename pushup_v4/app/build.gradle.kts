@@ -64,8 +64,10 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
 
-    // ML Kit Pose Detection (used later for step 3, added now so it's ready)
-    implementation("com.google.mlkit:pose-detection-accurate:18.0.0-beta5")
+    // ML Kit Pose Detection: hızlı/hafif (base) model kullanıyoruz - "accurate" model daha
+    // doğru ama belirgin şekilde daha yavaş, gerçek zamanlı iskelet takibinde gecikme
+    // hissettiriyordu. Base model gerçek zamanlı (STREAM_MODE) için tasarlanmış.
+    implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
