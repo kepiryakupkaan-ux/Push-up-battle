@@ -1,8 +1,6 @@
 package com.example.pushup
 
-import kotlin.math.abs
 import kotlin.math.acos
-import kotlin.math.atan2
 import kotlin.math.sqrt
 
 /**
@@ -20,10 +18,17 @@ import kotlin.math.sqrt
 data class RepFeedback(val qualityPercent: Int, val depthPercent: Int, val message: String)
 
 class RepCounter(
-    private val downThresholdDeg: Double = 95.0,
-    private val upThresholdDeg: Double = 150.0,
+    // Popüler açık kaynak MediaPipe şınav sayıcılarının kullandığı eşiklerle birebir aynı
+    // (ör. "PoseModule" tabanlı yaygın referans: elbow>160 UP, elbow<90 DOWN, hip>160, shoulder>40).
+    private val downThresholdDeg: Double = 90.0,
+    private val upThresholdDeg: Double = 160.0,
     private val minShoulderDrop: Float = 0.035f,
-    private val maxTorsoTiltDeg: Double = 55.0,
+    // Kalça EKLEMİNDEKİ açı (omuz-kalça-diz üç noktası arası) - kameradan bağımsız, rijit açı.
+    // Referans koddaki "hip > 160" ile birebir aynı eşik.
+    private val minHipAngleDeg: Double = 160.0,
+    // Omuz EKLEMİNDEKİ açı (dirsek-omuz-kalça üç noktası arası) - referans koddaki
+    // "shoulder > 40" ile birebir aynı, kolun gövdeye göre makul bir açıda olmasını sağlar.
+    private val minShoulderAngleDeg: Double = 40.0,
     private val emaFactor: Double = 0.32,
     private val phaseStableReadings: Int = 2,
     private val repCooldownMs: Long = 280L,
@@ -42,7 +47,8 @@ class RepCounter(
 
     private var filteredAngle: Double? = null
     private var filteredShoulderY: Float? = null
-    private var filteredTilt: Double? = null
+    private var filteredHipAngle: Double? = null
+    private var filteredShoulderAngle: Double? = null
 
     private var shoulderYAtUp = 0f
     private var maxShoulderYDuringDown = 0f
@@ -57,7 +63,8 @@ class RepCounter(
         lastFeedback = null
         filteredAngle = null
         filteredShoulderY = null
-        filteredTilt = null
+        filteredHipAngle = null
+        filteredShoulderAngle = null
         shoulderYAtUp = 0f
         maxShoulderYDuringDown = 0f
         candidateReadings = 0
@@ -66,14 +73,15 @@ class RepCounter(
         downStartedMs = 0L
     }
 
-    fun onReading(angleDeg: Double, shoulderY: Float, torsoTiltDeg: Double, poseConfidence: Float = 1f): Boolean {
+    fun onReading(angleDeg: Double, shoulderY: Float, hipAngleDeg: Double, shoulderAngleDeg: Double, poseConfidence: Float = 1f): Boolean {
         val angle = smooth(filteredAngle, angleDeg).also { filteredAngle = it }
         val shoulder = smooth(filteredShoulderY, shoulderY).toFloat().also { filteredShoulderY = it }
-        val tilt = smooth(filteredTilt, torsoTiltDeg).also { filteredTilt = it }
+        val hipAngle = smooth(filteredHipAngle, hipAngleDeg).also { filteredHipAngle = it }
+        val shoulderAngle = smooth(filteredShoulderAngle, shoulderAngleDeg).also { filteredShoulderAngle = it }
 
         // Bad posture pauses the phase machine instead of resetting it. This avoids
         // accidental reps when the person briefly leaves the plank position.
-        if (tilt > maxTorsoTiltDeg) {
+        if (hipAngle < minHipAngleDeg || shoulderAngle < minShoulderAngleDeg) {
             candidateReadings = 0
             return false
         }
@@ -136,7 +144,7 @@ class RepCounter(
                                 (upThresholdDeg - downThresholdDeg)) * 100.0)
                                 .coerceIn(0.0, 100.0).toInt()
                             val postureQuality =
-                                (100.0 - ((tilt / maxTorsoTiltDeg) * 35.0))
+                                (((hipAngle - minHipAngleDeg) / (180.0 - minHipAngleDeg)) * 100.0)
                                     .coerceIn(0.0, 100.0).toInt()
                             val tempoQuality = when {
                                 cycleMs in 700L..2200L -> 100
@@ -187,13 +195,6 @@ class RepCounter(
             if (magAB == 0.0 || magCB == 0.0) return 180.0
             val cosAngle = (dot / (magAB * magCB)).coerceIn(-1.0, 1.0)
             return Math.toDegrees(acos(cosAngle))
-        }
-
-        fun tiltFromHorizontalDegrees(x1: Float, y1: Float, x2: Float, y2: Float): Double {
-            val dx = (x2 - x1).toDouble()
-            val dy = (y2 - y1).toDouble()
-            if (dx == 0.0 && dy == 0.0) return 90.0
-            return Math.toDegrees(atan2(abs(dy), abs(dx)))
         }
     }
 }
